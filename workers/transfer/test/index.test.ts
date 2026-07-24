@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createHandler, type Env } from "../src/index";
+import * as worker from "../src/index";
+import { type Env } from "../src/index";
 
 const upload = {
   version: 1 as const,
@@ -45,6 +46,39 @@ class MemoryBucket {
   }
 }
 
+class ConcurrentClaimBucket extends MemoryBucket {
+  override async get(key: string): Promise<{ body: ReadableStream; customMetadata: Record<string, string> } | null> {
+    const object = await super.get(key);
+    if (!object || !key.startsWith("transfers/")) return object;
+    await Promise.resolve();
+    return object;
+  }
+}
+
+type TransferClaimGateConstructor = new (state: unknown, env: Env) => {
+  fetch(request: Request): Promise<Response>;
+};
+
+class MemoryClaimGateNamespace {
+  private readonly gates = new Map<string, { fetch(request: Request): Promise<Response> }>();
+
+  constructor(private readonly env: Env) {}
+
+  idFromName(name: string): string {
+    return name;
+  }
+
+  get(id: string): { fetch(request: Request): Promise<Response> } {
+    let gate = this.gates.get(id);
+    if (!gate) {
+      const Gate = (worker as unknown as { TransferClaimGate: TransferClaimGateConstructor }).TransferClaimGate;
+      gate = new Gate({}, this.env);
+      this.gates.set(id, gate);
+    }
+    return gate;
+  }
+}
+
 const createTestHandler = (bucket: MemoryBucket, turnstileSuccess = true) => {
   vi.stubGlobal(
     "fetch",
@@ -52,9 +86,13 @@ const createTestHandler = (bucket: MemoryBucket, turnstileSuccess = true) => {
       Response.json({ success: turnstileSuccess }),
     ),
   );
-  return createHandler({
+  const env = {
     TRANSFER_BUCKET: bucket,
     TURNSTILE_SECRET_KEY: "turnstile-secret",
+  } as unknown as Env;
+  return worker.createHandler({
+    ...env,
+    TRANSFER_CLAIM_GATE: new MemoryClaimGateNamespace(env),
   } as unknown as Env);
 };
 
@@ -70,7 +108,7 @@ const createRequest = (body: unknown, origin?: string) =>
   });
 
 const createUpload = async (
-  handler: ReturnType<typeof createHandler>,
+  handler: ReturnType<typeof worker.createHandler>,
   body: unknown = upload,
 ): Promise<string> => {
   const response = await handler.fetch(createRequest(body));
@@ -107,13 +145,13 @@ describe("one-time encrypted transfer worker", () => {
     expect(bucket.objects).toHaveLength(0);
   });
 
-  it("rejects malformed envelopes and ciphertext over 20MB before writing", async () => {
+  it("rejects malformed envelopes and serialized envelopes over 20MB before writing", async () => {
     const bucket = new MemoryBucket();
     const handler = createTestHandler(bucket);
-    const tooLargeCiphertext = Buffer.alloc(20 * 1024 * 1024 + 1).toString("base64url");
+    const envelopeTooLargeCiphertext = Buffer.alloc(16 * 1024 * 1024).toString("base64url");
 
     expect((await handler.fetch(createRequest({ version: 1, iv: "bad", ciphertext: "not valid!" }))).status).toBe(400);
-    expect((await handler.fetch(createRequest({ ...upload, ciphertext: tooLargeCiphertext }))).status).toBe(413);
+    expect((await handler.fetch(createRequest({ ...upload, ciphertext: envelopeTooLargeCiphertext }))).status).toBe(413);
     expect(bucket.objects).toHaveLength(0);
   });
 
@@ -143,6 +181,29 @@ describe("one-time encrypted transfer worker", () => {
     expect(first.headers.get("cache-control")).toBe("no-store");
     expect(await first.json()).toEqual(upload);
     expect(second.status).toBe(410);
+  });
+
+  it("allows exactly one successful response when two claims arrive concurrently", async () => {
+    const bucket = new ConcurrentClaimBucket();
+    const env = {
+      TRANSFER_BUCKET: bucket,
+      TURNSTILE_SECRET_KEY: "turnstile-secret",
+    } as unknown as Env;
+    const namespace = new MemoryClaimGateNamespace(env);
+    const handler = worker.createHandler({
+      ...env,
+      TRANSFER_CLAIM_GATE: namespace,
+    } as unknown as Env);
+    const id = "concurrent_claim_test_";
+    await bucket.put(`transfers/${id}`, JSON.stringify(upload), {
+      customMetadata: { expiresAt: "2099-01-01T00:00:00.000Z" },
+    });
+    const claim = () => handler.fetch(new Request(`https://worker.example/v1/transfers/${id}`));
+
+    const responses = await Promise.all([claim(), claim()]);
+
+    expect(responses.filter((response) => response.status === 200)).toHaveLength(1);
+    expect(responses.filter((response) => response.status === 410)).toHaveLength(1);
   });
 
   it("rejects expired transfers and scheduled cleanup removes their ciphertext", async () => {

@@ -24,6 +24,12 @@ export type Env = {
     list(options: { prefix: string; cursor?: string }): Promise<R2ListResult>;
   };
   TURNSTILE_SECRET_KEY: string;
+  TRANSFER_CLAIM_GATE: {
+    idFromName(name: string): unknown;
+    get(id: unknown): {
+      fetch(request: Request): Promise<Response>;
+    };
+  };
 };
 
 type TransferUpload = {
@@ -141,13 +147,17 @@ const createTransfer = async (request: Request, env: Env): Promise<Response> => 
 
   const ciphertextByteLength = decodedBase64UrlByteLength(upload.ciphertext);
   if (!ciphertextByteLength) return response(request, "Invalid transfer envelope", 400);
-  if (ciphertextByteLength > MAX_TRANSFER_BYTES) {
+  const serializedUpload = JSON.stringify(upload);
+  if (
+    ciphertextByteLength > MAX_TRANSFER_BYTES ||
+    new TextEncoder().encode(serializedUpload).byteLength > MAX_TRANSFER_BYTES
+  ) {
     return response(request, "Transfer payload too large", 413);
   }
 
   const id = generateId();
   const expiresAt = new Date(Date.now() + TRANSFER_TTL_MS).toISOString();
-  await env.TRANSFER_BUCKET.put(`${TRANSFER_PREFIX}${id}`, JSON.stringify(upload), {
+  await env.TRANSFER_BUCKET.put(`${TRANSFER_PREFIX}${id}`, serializedUpload, {
     customMetadata: { expiresAt },
   });
   return json(request, { id }, 201, { "Cache-Control": "no-store" });
@@ -178,6 +188,30 @@ const claimTransfer = async (request: Request, env: Env, id: string): Promise<Re
   });
 };
 
+export class TransferClaimGate {
+  private queue: Promise<void> = Promise.resolve();
+
+  constructor(_state: unknown, private readonly env: Env) {}
+
+  fetch(request: Request): Promise<Response> {
+    const task = this.queue.then(() => {
+      const id = new URL(request.url).pathname.slice(1);
+      return claimTransfer(request, this.env, id);
+    });
+    this.queue = task.then(
+      () => undefined,
+      () => undefined,
+    );
+    return task;
+  }
+}
+
+const claimTransferThroughGate = async (request: Request, env: Env, id: string): Promise<Response> => {
+  const gate = env.TRANSFER_CLAIM_GATE.get(env.TRANSFER_CLAIM_GATE.idFromName(id));
+  const claimed = await gate.fetch(new Request(`https://transfer-claim-gate/${id}`));
+  return response(request, claimed.body, claimed.status, claimed.headers);
+};
+
 const deleteExpiredTransfers = async (env: Env): Promise<void> => {
   let cursor: string | undefined;
   do {
@@ -202,7 +236,7 @@ export function createHandler(env: Env) {
       }
       if (request.method === "POST" && url.pathname === "/v1/transfers") return createTransfer(request, env);
       if (request.method === "GET" && url.pathname.startsWith("/v1/transfers/")) {
-        return claimTransfer(request, env, url.pathname.slice("/v1/transfers/".length));
+        return claimTransferThroughGate(request, env, url.pathname.slice("/v1/transfers/".length));
       }
       return response(request, "Not found", 404);
     },

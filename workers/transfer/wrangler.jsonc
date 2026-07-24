@@ -9,6 +9,20 @@
       "bucket_name": "aurora-chat-transfers"
     }
   ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "TRANSFER_CLAIM_GATE",
+        "class_name": "TransferClaimGate"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["TransferClaimGate"]
+    }
+  ],
   "triggers": {
     "crons": ["*/5 * * * *"]
   }
