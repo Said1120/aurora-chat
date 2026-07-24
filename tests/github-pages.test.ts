@@ -1,4 +1,4 @@
-import { access, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -22,9 +22,13 @@ describe("GitHub Pages 独立发布", () => {
     expect(manifest.icons[0]?.src).toBe("/aurora-chat/icon.svg");
   });
 
-  it("包含 GitHub Pages 自动发布流程", async () => {
-    await expect(
-      access(projectFile(".github/workflows/deploy-pages.yml")),
-    ).resolves.toBeUndefined();
+  it("提供无需 workflow 权限的 Pages 发布命令", async () => {
+    const packageJson = JSON.parse(
+      await readFile(projectFile("package.json"), "utf8"),
+    ) as { scripts: Record<string, string> };
+
+    expect(packageJson.scripts["deploy:pages"]).toBe(
+      "npm run build && gh-pages -d out -b gh-pages",
+    );
   });
 });

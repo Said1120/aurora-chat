@@ -7,9 +7,9 @@
 ## 在 iPad 上使用
 
 1. 用 iPad 的 Safari 打开 <https://said1120.github.io/aurora-chat/>。
-2. 点击浏览器底部的“分享”按钮。
+2. 点击浏览器的“分享”按钮。
 3. 选择“添加到主屏幕”，确认名称后点击“添加”。
-4. 从主屏幕打开 Aurora Chat，进入右侧“设置”。
+4. 从主屏幕打开 Aurora Chat，进入“设置”。
 5. 填入 DeepSeek API Key，保留默认地址 `https://api.deepseek.com` 和模型 `deepseek-chat`，点击“保存连接设置”。
 6. 新建对话后即可开始聊天。
 
@@ -20,7 +20,7 @@
 - 可安装的 iPad PWA，支持横屏、竖屏和分屏。
 - DeepSeek / OpenAI 兼容 API 的流式聊天与停止生成。
 - AI 角色、头像、系统提示词和快捷表情。
-- 本机对话保存、置顶、自动标题与复制回答。
+- 本地对话保存、置顶、自动标题与复制回答。
 - JSON 导入导出。
 - 为将来的图片、贴纸和 MCP 工具调用预留消息结构与安全确认边界。
 
@@ -34,6 +34,6 @@ npm run build
 
 ## 发布方式
 
-每次向 `main` 分支推送更新时，GitHub Actions 会生成纯静态 PWA 并自动发布到 GitHub Pages。网站不依赖 ChatGPT、Cloudflare、Vercel或其他登录入口。
+运行 `npm run deploy:pages` 会生成纯静态 PWA 并发布到仓库的 `gh-pages` 分支。GitHub Pages 从这个分支提供独立网站，不依赖 ChatGPT、Cloudflare、Vercel 或其他登录入口。
 
 API Key 不会写入源代码或 GitHub，只保存在当前设备的浏览器数据库中。不要在共享设备上保存密钥。

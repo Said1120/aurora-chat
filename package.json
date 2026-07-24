@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "deploy:pages": "npm run build && gh-pages -d out -b gh-pages",
     "start": "npx serve out",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -28,6 +29,7 @@
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
     "fake-indexeddb": "6.2.4",
+    "gh-pages": "6.3.0",
     "jsdom": "28.1.0",
     "typescript": "5.9.3",
     "vitest": "4.0.18"
