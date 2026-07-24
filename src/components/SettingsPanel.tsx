@@ -13,6 +13,7 @@ import {
   type TemperaturePreset,
 } from "../providers/catalog";
 import type { ModelProfile } from "../domain/models";
+import { TransferPanel, type TransferPanelProps } from "./TransferPanel";
 
 type ImportMode = "replace" | "merge";
 
@@ -26,6 +27,7 @@ type SettingsPanelProps = {
     password: string,
     mode: ImportMode,
   ) => void | Promise<void>;
+  transfer?: TransferPanelProps;
 };
 
 const providerIdFor = (profile: ModelProfile): ProviderId =>
@@ -56,6 +58,7 @@ export function SettingsPanel({
   onSaveProfile,
   onExportEncrypted,
   onImportEncrypted,
+  transfer,
 }: SettingsPanelProps) {
   const [draft, setDraft] = useState<ModelProfile>(() => ({
     ...profile,
@@ -327,6 +330,8 @@ export function SettingsPanel({
       </button>
       {backupError && <p className="backup-error">{backupError}</p>}
       {backupNotice && <p className="backup-notice">{backupNotice}</p>}
+      <hr />
+      {transfer && <TransferPanel {...transfer} />}
     </div>
   );
 }

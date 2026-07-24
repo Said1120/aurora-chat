@@ -193,6 +193,17 @@ export default function Home() {
     );
   };
 
+  const applyImportedBackup = async (imported: BackupV2, mode: "replace" | "merge") => {
+    const database = dbRef.current;
+    if (!database) throw new Error("数据库尚未就绪");
+    if (mode === "replace" && !window.confirm("这会替换本机的全部对话、角色和服务配置，确定继续吗？")) {
+      return;
+    }
+    const backup = mode === "merge" ? mergeBackup(await exportDatabase(database), imported) : imported;
+    await replaceDatabase(database, backup);
+    await refresh(backup.conversations[0]?.id);
+  };
+
   const importBackup = async (file: File, password: string, mode: "replace" | "merge") => {
     const database = dbRef.current;
     if (!database) throw new Error("数据库尚未就绪");
@@ -200,12 +211,7 @@ export default function Home() {
     const imported = isEncryptedBackup(parsed)
       ? await decryptBackup(parsed, password)
       : validateBackup(parsed);
-    if (mode === "replace" && !window.confirm("这会替换本机的全部对话、角色和服务配置，确定继续吗？")) {
-      return;
-    }
-    const backup = mode === "merge" ? mergeBackup(await exportDatabase(database), imported) : imported;
-    await replaceDatabase(database, backup);
-    await refresh(backup.conversations[0]?.id);
+    await applyImportedBackup(imported, mode);
   };
 
   const send = async () => {
@@ -375,6 +381,15 @@ export default function Home() {
               onSaveProfile={saveProfile}
               onExportEncrypted={exportEncrypted}
               onImportEncrypted={importBackup}
+              transfer={{
+                getBackup: async () => {
+                  if (!dbRef.current) throw new Error("数据库尚未就绪");
+                  return exportDatabase(dbRef.current);
+                },
+                serviceUrl: process.env.NEXT_PUBLIC_TRANSFER_SERVICE_URL,
+                turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
+                onImportBackup: applyImportedBackup,
+              }}
             />
           ) : (
             <>
