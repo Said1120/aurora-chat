@@ -61,8 +61,8 @@ npx wrangler secret put TURNSTILE_SECRET_KEY --config workers/transfer/wrangler.
 npm --prefix workers/transfer run deploy
 ```
 
-Worker 的 `wrangler.jsonc` 已声明 R2、Turnstile 密钥绑定和 Durable Object。首次部署必须应用其中 `v1` 的 Durable Object migration；它为原子化的一次性领取门提供存储类，缺少该 migration 会破坏“仅能领取一次”的安全保证。今后若变更 Durable Object 类，也必须先在同一配置中声明相应 migration，再部署 Worker。
+Worker 的 `wrangler.jsonc` 声明 R2 和 Durable Object（含 migration）；`TURNSTILE_SECRET_KEY` 是通过 `wrangler secret put` 设置的运行时密钥，并不在配置文件中声明。首次部署必须应用其中 `v1` 的 Durable Object migration；它为原子化的一次性领取门提供存储类，缺少该 migration 会破坏“仅能领取一次”的安全保证。今后若变更 Durable Object 类，也必须先在同一配置中声明相应 migration，再部署 Worker。
 
 部署 Worker 后，将返回的 Worker URL 和公开的 Turnstile site key 作为 GitHub Pages 构建变量 `NEXT_PUBLIC_TRANSFER_SERVICE_URL` 与 `NEXT_PUBLIC_TURNSTILE_SITE_KEY` 配置，然后重新构建并运行 `npm run deploy:pages`。这两个变量仅用于浏览器连接 Worker 和加载 Turnstile；不要把 API Key、备份密码、Turnstile secret 或传输密钥放入构建变量。
 
-发布后应从 `https://said1120.github.io/aurora-chat/` 验证站点返回 200，并以两台设备完成一次迁移：接收端能恢复加密备份，第二次领取失败。还应确认 Worker 的 CORS 预检只允许 `https://said1120.github.io`。
+发布后应从 `https://said1120.github.io/aurora-chat/` 验证站点返回 200，并以两台设备完成一次迁移：接收端能恢复加密备份，第二次领取失败。Worker 的 CORS 预检在生产环境只允许 `https://said1120.github.io`；`http://localhost` 和 `http://127.0.0.1` 是本地开发例外（允许任意端口）。

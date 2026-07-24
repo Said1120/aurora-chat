@@ -55,4 +55,12 @@ describe("GitHub Pages 独立发布", () => {
     expect(readme).toContain("一次性传输码");
     expect(readme).toContain("远程 HTTP/SSE MCP");
   });
+
+  it("README 准确说明 Turnstile 密钥和本地 CORS 例外", async () => {
+    const readme = await readFile(projectFile("README.md"), "utf8");
+
+    expect(readme).toContain("`TURNSTILE_SECRET_KEY` 是通过 `wrangler secret put` 设置的运行时密钥");
+    expect(readme).toContain("生产环境只允许 `https://said1120.github.io`");
+    expect(readme).toContain("`http://localhost` 和 `http://127.0.0.1` 是本地开发例外");
+  });
 });
