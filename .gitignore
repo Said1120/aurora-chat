@@ -41,3 +41,7 @@ next-env.d.ts
 /outputs/
 /work/
 /.worktrees/
+
+# Cloudflare Worker local files
+/workers/transfer/node_modules/
+/workers/transfer/.dev.vars*

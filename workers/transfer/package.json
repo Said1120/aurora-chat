@@ -1,0 +1,14 @@
+{
+  "name": "aurora-chat-transfer-worker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "deploy": "wrangler deploy --config wrangler.jsonc"
+  },
+  "devDependencies": {
+    "vitest": "4.0.18",
+    "wrangler": "4.65.0"
+  }
+}
