@@ -1,4 +1,4 @@
-const CACHE = "aurora-chat-v2";
+const CACHE = "aurora-chat-v3";
 const BASE = "/aurora-chat/";
 const ASSETS = [BASE, `${BASE}manifest.webmanifest`, `${BASE}icon.svg`];
 

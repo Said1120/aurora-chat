@@ -9,6 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "deploy:pages": "npm run build && gh-pages -d out -b gh-pages -t",
+    "deploy:transfer": "npm --prefix workers/transfer run deploy",
     "start": "npx serve out",
     "test": "vitest run",
     "test:watch": "vitest",

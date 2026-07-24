@@ -31,4 +31,28 @@ describe("GitHub Pages 独立发布", () => {
       "npm run build && gh-pages -d out -b gh-pages -t",
     );
   });
+
+  it("提供临时传输 Worker 的部署命令", async () => {
+    const packageJson = JSON.parse(
+      await readFile(projectFile("package.json"), "utf8"),
+    ) as { scripts: Record<string, string> };
+
+    expect(packageJson.scripts["deploy:transfer"]).toBe(
+      "npm --prefix workers/transfer run deploy",
+    );
+  });
+
+  it("发布新版静态资源时更新服务工作线程缓存", async () => {
+    const serviceWorker = await readFile(projectFile("public/sw.js"), "utf8");
+
+    expect(serviceWorker).toContain('const CACHE = "aurora-chat-v3"');
+  });
+
+  it("README 说明多厂商、加密迁移和 MCP 边界", async () => {
+    const readme = await readFile(projectFile("README.md"), "utf8");
+
+    expect(readme).toContain("Kimi");
+    expect(readme).toContain("一次性传输码");
+    expect(readme).toContain("远程 HTTP/SSE MCP");
+  });
 });
