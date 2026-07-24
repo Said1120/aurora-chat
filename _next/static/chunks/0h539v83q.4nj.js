@@ -1,0 +1,1 @@
+(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,13578,r=>{"use strict";var e=r.i(71645);r.s(["PwaRegister",0,function(){return(0,e.useEffect)(()=>{"serviceWorker"in navigator&&navigator.serviceWorker.register("/aurora-chat/sw.js",{scope:"/aurora-chat/"}).catch(()=>void 0)},[]),null}])}]);
