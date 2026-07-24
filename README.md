@@ -1,10 +1,12 @@
 # Aurora Chat
 
-一个为 iPad 设计的个人 AI 聊天工具。它可直接连接 DeepSeek 或其他 OpenAI 兼容 API，并在当前设备保存对话、角色和设置。
+一个完全独立、为 iPad 设计的个人 AI 聊天工具。它通过 GitHub Pages 免费发布，可直接连接 DeepSeek 或其他 OpenAI 兼容 API，并在当前设备保存对话、角色和设置。
+
+独立网址：<https://said1120.github.io/aurora-chat/>
 
 ## 在 iPad 上使用
 
-1. 用 iPad 的 Safari 打开部署地址。
+1. 用 iPad 的 Safari 打开 <https://said1120.github.io/aurora-chat/>。
 2. 点击浏览器底部的“分享”按钮。
 3. 选择“添加到主屏幕”，确认名称后点击“添加”。
 4. 从主屏幕打开 Aurora Chat，进入右侧“设置”。
@@ -30,4 +32,8 @@ npm test
 npm run build
 ```
 
-API Key 只保存在当前设备的浏览器数据库中。不要在共享设备上保存密钥。
+## 发布方式
+
+每次向 `main` 分支推送更新时，GitHub Actions 会生成纯静态 PWA 并自动发布到 GitHub Pages。网站不依赖 ChatGPT、Cloudflare、Vercel或其他登录入口。
+
+API Key 不会写入源代码或 GitHub，只保存在当前设备的浏览器数据库中。不要在共享设备上保存密钥。
