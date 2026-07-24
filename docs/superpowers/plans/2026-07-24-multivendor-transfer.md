@@ -366,7 +366,7 @@ git commit -m "feat: add multivendor settings and encrypted backup UI"
 
 **Interfaces:**
 - Produces: createTransferPayload(backup), openTransferPayload(upload, secret), createTransfer(serviceUrl, token, payload, fetcher), claimTransfer(serviceUrl, id, fetcher).
-- Transfer URI format: aurora://transfer/<id>#<base64url-key>.
+- Transfer QR/link format: https://said1120.github.io/aurora-chat/?transfer=<id>#key=<base64url-key>. The key is deliberately in the fragment so no server receives it.
 
 - [ ] **Step 1: Write failing tests**
 
