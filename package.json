@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "deploy:pages": "npm run build && gh-pages -d out -b gh-pages",
+    "deploy:pages": "npm run build && gh-pages -d out -b gh-pages -t",
     "start": "npx serve out",
     "test": "vitest run",
     "test:watch": "vitest",
