@@ -1,3 +1,9 @@
+import type {
+  ProviderId,
+  ReasoningLevel,
+  TemperaturePreset,
+} from "../providers/catalog";
+
 export type MessagePart =
   | { type: "text"; text: string }
   | { type: "sticker"; emoji: string; label: string }
@@ -39,12 +45,17 @@ export type Conversation = {
 
 export type ModelProfile = {
   id: string;
+  providerId?: ProviderId;
   name: string;
   baseUrl: string;
   apiKey: string;
   model: string;
   temperature: number;
+  temperaturePreset?: TemperaturePreset;
+  reasoningLevel?: ReasoningLevel;
+  useCustomModel?: boolean;
   maxTokens: number;
+  updatedAt?: string;
 };
 
 export type Backup = {
