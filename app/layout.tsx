@@ -4,7 +4,7 @@ import { PwaRegister } from "./PwaRegister";
 
 export const metadata: Metadata = {
   title: "Aurora Chat",
-  description: "你的独立 iPad AI 聊天工具",
+  description: "你的跨平台个人 AI 聊天工具",
   manifest: "/aurora-chat/manifest.webmanifest",
   icons: { icon: "/aurora-chat/icon.svg" },
   appleWebApp: {

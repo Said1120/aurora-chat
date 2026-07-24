@@ -70,6 +70,7 @@ type BackupContents = {
 export type BackupV1 = BackupContents & { version: 1 };
 export type BackupV2 = BackupContents & { version: 2 };
 export type Backup = BackupV2;
+export type BackupImportResult = "applied" | "canceled";
 
 const now = () => new Date().toISOString();
 const id = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;

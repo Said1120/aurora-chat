@@ -21,7 +21,11 @@ export type Env = {
     put(key: string, value: string, options: { customMetadata: Record<string, string> }): Promise<unknown>;
     get(key: string): Promise<R2Object | null>;
     delete(key: string): Promise<unknown>;
-    list(options: { prefix: string; cursor?: string }): Promise<R2ListResult>;
+    list(options: {
+      prefix: string;
+      cursor?: string;
+      include?: ["customMetadata"];
+    }): Promise<R2ListResult>;
   };
   TURNSTILE_SECRET_KEY: string;
   TRANSFER_CLAIM_GATE: {
@@ -215,7 +219,11 @@ const claimTransferThroughGate = async (request: Request, env: Env, id: string):
 const deleteExpiredTransfers = async (env: Env): Promise<void> => {
   let cursor: string | undefined;
   do {
-    const page = await env.TRANSFER_BUCKET.list({ prefix: TRANSFER_PREFIX, cursor });
+    const page = await env.TRANSFER_BUCKET.list({
+      prefix: TRANSFER_PREFIX,
+      cursor,
+      include: ["customMetadata"],
+    });
     await Promise.all(
       page.objects
         .filter((object) => isExpired(object.customMetadata?.expiresAt))

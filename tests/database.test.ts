@@ -87,4 +87,96 @@ describe("本机数据保存", () => {
       "2026-07-24T10:00:00.000Z",
     );
   });
+
+  it("合并时将较新的旧版 default DeepSeek 配置规范为唯一的 deepseek 配置", () => {
+    const existing: BackupV2 = {
+      version: 2,
+      exportedAt: "2026-07-24T09:00:00.000Z",
+      roles: [],
+      conversations: [],
+      messages: [],
+      profiles: [{
+        id: "deepseek",
+        providerId: "deepseek",
+        name: "DeepSeek",
+        baseUrl: "https://api.deepseek.com",
+        apiKey: "current-key",
+        model: "deepseek-v4-flash",
+        temperature: 0.7,
+        maxTokens: 2048,
+        updatedAt: "2026-07-24T09:00:00.000Z",
+      }],
+    };
+    const incoming: BackupV2 = {
+      ...existing,
+      exportedAt: "2026-07-24T10:00:00.000Z",
+      profiles: [{
+        id: "default",
+        name: "DeepSeek",
+        baseUrl: "https://api.deepseek.com",
+        apiKey: "newer-legacy-key",
+        model: "deepseek-chat",
+        temperature: 0.7,
+        maxTokens: 2048,
+        updatedAt: "2026-07-24T10:00:00.000Z",
+      }],
+    };
+
+    const profiles = mergeBackup(existing, incoming).profiles;
+
+    expect(profiles).toHaveLength(1);
+    expect(profiles[0]).toMatchObject({
+      id: "deepseek",
+      providerId: "deepseek",
+      apiKey: "newer-legacy-key",
+      model: "deepseek-v4-flash",
+      updatedAt: "2026-07-24T10:00:00.000Z",
+    });
+  });
+
+  it("合并旧版 default DeepSeek 配置时仍保留更新时间较新的当前配置", () => {
+    const existing: BackupV2 = {
+      version: 2,
+      exportedAt: "2026-07-24T10:00:00.000Z",
+      roles: [],
+      conversations: [],
+      messages: [],
+      profiles: [{
+        id: "deepseek",
+        providerId: "deepseek",
+        name: "DeepSeek",
+        baseUrl: "https://api.deepseek.com",
+        apiKey: "newer-current-key",
+        model: "deepseek-v4-pro",
+        temperature: 0.7,
+        maxTokens: 2048,
+        updatedAt: "2026-07-24T10:00:00.000Z",
+      }],
+    };
+    const incoming: BackupV2 = {
+      ...existing,
+      exportedAt: "2026-07-24T08:00:00.000Z",
+      profiles: [{
+        id: "default",
+        name: "DeepSeek",
+        baseUrl: "https://api.deepseek.com",
+        apiKey: "older-legacy-key",
+        model: "deepseek-chat",
+        temperature: 0.7,
+        maxTokens: 2048,
+        updatedAt: "2026-07-24T08:00:00.000Z",
+      }],
+    };
+
+    const profiles = mergeBackup(existing, incoming).profiles;
+
+    expect(profiles).toHaveLength(1);
+    expect(profiles[0]).toMatchObject({
+      id: "deepseek",
+      providerId: "deepseek",
+      apiKey: "newer-current-key",
+      model: "deepseek-v4-pro",
+      updatedAt: "2026-07-24T10:00:00.000Z",
+    });
+  });
 });

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 const projectFile = (path: string) => resolve(process.cwd(), path);
@@ -40,6 +41,33 @@ describe("GitHub Pages 独立发布", () => {
     expect(packageJson.scripts["deploy:transfer"]).toBe(
       "npm --prefix workers/transfer run deploy",
     );
+  });
+
+  it("可从提交的锁文件复现安装临时传输 Worker 依赖", () => {
+    const npmCli = process.env.npm_execpath;
+    if (!npmCli) throw new Error("npm_execpath is unavailable");
+    const result = spawnSync(
+      process.execPath,
+      [
+        npmCli,
+        "ci",
+        "--prefix",
+        "workers/transfer",
+        "--dry-run",
+        "--ignore-scripts",
+        "--no-audit",
+        "--no-fund",
+      ],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+      },
+    );
+
+    expect(
+      result.status,
+      result.error?.message || result.stderr || result.stdout,
+    ).toBe(0);
   });
 
   it("发布新版静态资源时更新服务工作线程缓存", async () => {

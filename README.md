@@ -21,7 +21,7 @@ Aurora Chat 是一个跨平台、可安装的个人 AI 聊天 PWA，可在 iPad�
 
 在任意受支持的浏览器中打开网站，进入“设置”后选择服务商、填写自己的 API Key 并保存，即可新建对话。iPad 上可通过 Safari 的“添加到主屏幕”安装为应用；其他设备可使用浏览器提供的 PWA 安装入口。
 
-数据默认留在本机。请不要在共享设备上保存 API Key，并定期导出备份。导出的 `.aurora` 备份使用用户设置的备份密码在本机以 AES-GCM 加密；密码不会保存到文件或发送到网络。导入时同样在本机解密和预览，再选择合并或替换现有数据。
+数据默认留在本机。请不要在共享设备上保存 API Key，并定期导出备份。导出的 `.aurora` 备份使用用户设置的备份密码在本机以 AES-GCM 加密；密码不会保存到文件或发送到网络。导入时同样只在本机解密，再选择合并或替换现有数据；即时迁移包会在确认导入前显示内容预览。
 
 ## 设备迁移
 
@@ -36,8 +36,10 @@ Aurora Chat 是一个跨平台、可安装的个人 AI 聊天 PWA，可在 iPad�
 ## 本地开发与验证
 
 ```bash
-npm install
+npm ci
+npm ci --prefix workers/transfer
 npm test
+npm --prefix workers/transfer test
 npm run lint
 npm run build
 ```
@@ -55,13 +57,14 @@ npm run deploy:pages
 临时传输 Worker 需要由 Cloudflare 账户所有者完成以下首次配置；不要将任何密钥或传输链接提交到仓库：
 
 ```bash
-npx wrangler login
-npx wrangler r2 bucket create aurora-chat-transfers
-npx wrangler secret put TURNSTILE_SECRET_KEY --config workers/transfer/wrangler.jsonc
+npm ci --prefix workers/transfer
+npm --prefix workers/transfer exec -- wrangler login
+npm --prefix workers/transfer exec -- wrangler r2 bucket create aurora-chat-transfers
+npm --prefix workers/transfer exec -- wrangler secret put TURNSTILE_SECRET_KEY --config workers/transfer/wrangler.jsonc
 npm --prefix workers/transfer run deploy
 ```
 
-Worker 的 `wrangler.jsonc` 声明 R2 和 Durable Object（含 migration）；`TURNSTILE_SECRET_KEY` 是通过 `wrangler secret put` 设置的运行时密钥，并不在配置文件中声明。首次部署必须应用其中 `v1` 的 Durable Object migration；它为原子化的一次性领取门提供存储类，缺少该 migration 会破坏“仅能领取一次”的安全保证。今后若变更 Durable Object 类，也必须先在同一配置中声明相应 migration，再部署 Worker。
+`workers/transfer/package-lock.json` 固定 Worker 的部署工具版本；每次从新检出部署前都使用上面的 `npm ci --prefix workers/transfer`，不要改用未锁定版本的全局或临时 Wrangler。Worker 的 `wrangler.jsonc` 声明 R2 和 Durable Object（含 migration）；`TURNSTILE_SECRET_KEY` 是通过 `wrangler secret put` 设置的运行时密钥，并不在配置文件中声明。首次部署必须应用其中 `v1` 的 Durable Object migration；它为原子化的一次性领取门提供存储类，缺少该 migration 会破坏“仅能领取一次”的安全保证。今后若变更 Durable Object 类，也必须先在同一配置中声明相应 migration，再部署 Worker。
 
 部署 Worker 后，将返回的 Worker URL 和公开的 Turnstile site key 作为 GitHub Pages 构建变量 `NEXT_PUBLIC_TRANSFER_SERVICE_URL` 与 `NEXT_PUBLIC_TURNSTILE_SITE_KEY` 配置，然后重新构建并运行 `npm run deploy:pages`。这两个变量仅用于浏览器连接 Worker 和加载 Turnstile；不要把 API Key、备份密码、Turnstile secret 或传输密钥放入构建变量。
 

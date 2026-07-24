@@ -37,11 +37,17 @@ class MemoryBucket {
     this.objects.delete(key);
   }
 
-  async list(options: { prefix?: string } = {}): Promise<{ objects: Array<{ key: string; customMetadata: Record<string, string> }> }> {
+  async list(options: { prefix?: string; include?: string[] } = {}): Promise<{
+    objects: Array<{ key: string; customMetadata?: Record<string, string> }>;
+  }> {
+    const includeCustomMetadata = options.include?.includes("customMetadata") ?? false;
     return {
       objects: [...this.objects.entries()]
         .filter(([key]) => !options.prefix || key.startsWith(options.prefix))
-        .map(([key, object]) => ({ key, customMetadata: object.customMetadata })),
+        .map(([key, object]) => ({
+          key,
+          ...(includeCustomMetadata ? { customMetadata: object.customMetadata } : {}),
+        })),
     };
   }
 }
@@ -206,7 +212,7 @@ describe("one-time encrypted transfer worker", () => {
     expect(responses.filter((response) => response.status === 410)).toHaveLength(1);
   });
 
-  it("rejects expired transfers and scheduled cleanup removes their ciphertext", async () => {
+  it("requests R2 custom metadata so scheduled cleanup preserves unexpired ciphertext", async () => {
     vi.setSystemTime(new Date("2026-07-25T12:00:00.000Z"));
     const bucket = new MemoryBucket();
     await bucket.put("transfers/expired", JSON.stringify(upload), {

@@ -135,6 +135,21 @@ function mergeRecords<T extends MergeableRecord>(existing: T[], incoming: T[]): 
   return Array.from(records.values());
 }
 
+const canonicalizeProfile = (profile: ModelProfile): ModelProfile =>
+  profile.id === "default"
+    ? {
+        ...profile,
+        id: "deepseek",
+        providerId: "deepseek",
+        model:
+          profile.model === "deepseek-chat" || profile.model === "deepseek-reasoner"
+            ? "deepseek-v4-flash"
+            : profile.model,
+        temperaturePreset: profile.temperaturePreset ?? "balanced",
+        reasoningLevel: profile.reasoningLevel ?? "standard",
+      }
+    : profile;
+
 export function mergeBackup(existing: BackupV2, incoming: BackupV2): BackupV2 {
   return {
     version: 2,
@@ -148,6 +163,9 @@ export function mergeBackup(existing: BackupV2, incoming: BackupV2): BackupV2 {
       ...message,
       updatedAt: message.updatedAt ?? message.createdAt,
     })),
-    profiles: mergeRecords(existing.profiles, incoming.profiles),
+    profiles: mergeRecords(
+      existing.profiles.map(canonicalizeProfile),
+      incoming.profiles.map(canonicalizeProfile),
+    ),
   };
 }

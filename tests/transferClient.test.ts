@@ -42,7 +42,11 @@ describe("一次性迁移客户端", () => {
   });
 
   it("拒绝超过 20MB 的密文上传", async () => {
-    const oversized = { version: 1, iv: "iv", ciphertext: "a".repeat(20 * 1024 * 1024) };
+    const oversized = {
+      version: 1 as const,
+      iv: "iv",
+      ciphertext: "a".repeat(20 * 1024 * 1024),
+    };
 
     await expect(
       createTransfer("https://transfer.example", "turnstile", oversized, vi.fn()),

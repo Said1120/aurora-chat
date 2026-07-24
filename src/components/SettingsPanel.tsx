@@ -12,7 +12,7 @@ import {
   type ReasoningLevel,
   type TemperaturePreset,
 } from "../providers/catalog";
-import type { ModelProfile } from "../domain/models";
+import type { BackupImportResult, ModelProfile } from "../domain/models";
 import { TransferPanel, type TransferPanelProps } from "./TransferPanel";
 
 type ImportMode = "replace" | "merge";
@@ -26,7 +26,7 @@ type SettingsPanelProps = {
     file: File,
     password: string,
     mode: ImportMode,
-  ) => void | Promise<void>;
+  ) => BackupImportResult | Promise<BackupImportResult>;
   transfer?: TransferPanelProps;
 };
 
@@ -100,6 +100,24 @@ export function SettingsPanel({
     });
   };
 
+  const setCustomModelEnabled = (enabled: boolean) => {
+    if (enabled) {
+      update({ useCustomModel: true });
+      return;
+    }
+    const catalogModel =
+      getModelDefinition(providerId, draft.model) ?? defaultModelFor(providerId);
+    update({
+      useCustomModel: false,
+      model: catalogModel.id,
+      reasoningLevel: catalogModel.reasoningLevels.includes(
+        draft.reasoningLevel ?? "standard",
+      )
+        ? draft.reasoningLevel
+        : (catalogModel.reasoningLevels[0] ?? "off"),
+    });
+  };
+
   const save = async () => {
     await onSaveProfile({
       ...draft,
@@ -135,7 +153,8 @@ export function SettingsPanel({
       return;
     }
     try {
-      await onImportEncrypted(importFile, importPassword, importMode);
+      const result = await onImportEncrypted(importFile, importPassword, importMode);
+      if (result === "canceled") return;
       setImportFile(null);
       setImportPassword("");
       setBackupNotice("备份已导入。");
@@ -178,7 +197,7 @@ export function SettingsPanel({
         <input
           type="checkbox"
           checked={draft.useCustomModel ?? false}
-          onChange={(event) => update({ useCustomModel: event.target.checked })}
+          onChange={(event) => setCustomModelEnabled(event.target.checked)}
         />
         使用自定义模型名称
       </label>

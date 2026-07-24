@@ -2,7 +2,7 @@
 
 import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
-import type { BackupV2 } from "../domain/models";
+import type { BackupImportResult, BackupV2 } from "../domain/models";
 import {
   claimTransfer,
   createTransfer,
@@ -20,7 +20,10 @@ export type TransferPanelProps = {
   serviceUrl?: string;
   turnstileSiteKey?: string;
   appUrl?: string;
-  onImportBackup: (backup: BackupV2, mode: ImportMode) => void | Promise<void>;
+  onImportBackup: (
+    backup: BackupV2,
+    mode: ImportMode,
+  ) => BackupImportResult | Promise<BackupImportResult>;
 };
 
 type TurnstileApi = {
@@ -159,7 +162,8 @@ export function TransferPanel({
     if (!receivedBackup) return;
     setBusy(true);
     try {
-      await onImportBackup(receivedBackup, mode);
+      const result = await onImportBackup(receivedBackup, mode);
+      if (result === "canceled") return;
       setNotice("迁移数据已导入。");
       setReceivedBackup(null);
     } catch (caught) {

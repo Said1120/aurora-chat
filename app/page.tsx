@@ -16,6 +16,7 @@ import {
 import {
   createStarterRole,
   validateBackup,
+  type BackupImportResult,
   type BackupV2,
   type ChatMessage,
   type Conversation,
@@ -193,25 +194,33 @@ export default function Home() {
     );
   };
 
-  const applyImportedBackup = async (imported: BackupV2, mode: "replace" | "merge") => {
+  const applyImportedBackup = async (
+    imported: BackupV2,
+    mode: "replace" | "merge",
+  ): Promise<BackupImportResult> => {
     const database = dbRef.current;
     if (!database) throw new Error("数据库尚未就绪");
     if (mode === "replace" && !window.confirm("这会替换本机的全部对话、角色和服务配置，确定继续吗？")) {
-      return;
+      return "canceled";
     }
     const backup = mode === "merge" ? mergeBackup(await exportDatabase(database), imported) : imported;
     await replaceDatabase(database, backup);
     await refresh(backup.conversations[0]?.id);
+    return "applied";
   };
 
-  const importBackup = async (file: File, password: string, mode: "replace" | "merge") => {
+  const importBackup = async (
+    file: File,
+    password: string,
+    mode: "replace" | "merge",
+  ): Promise<BackupImportResult> => {
     const database = dbRef.current;
     if (!database) throw new Error("数据库尚未就绪");
     const parsed = JSON.parse(await file.text()) as unknown;
     const imported = isEncryptedBackup(parsed)
       ? await decryptBackup(parsed, password)
       : validateBackup(parsed);
-    await applyImportedBackup(imported, mode);
+    return applyImportedBackup(imported, mode);
   };
 
   const send = async () => {
