@@ -24,10 +24,13 @@ const fromBase64 = (value: string): Uint8Array => {
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 };
 
+const toCryptoBytes = (bytes: Uint8Array): Uint8Array<ArrayBuffer> =>
+  Uint8Array.from(bytes);
+
 const deriveKey = async (password: string, salt: Uint8Array): Promise<CryptoKey> => {
   const baseKey = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(password),
+    toCryptoBytes(new TextEncoder().encode(password)),
     "PBKDF2",
     false,
     ["deriveKey"],
@@ -36,7 +39,7 @@ const deriveKey = async (password: string, salt: Uint8Array): Promise<CryptoKey>
     {
       name: "PBKDF2",
       hash: "SHA-256",
-      salt,
+      salt: toCryptoBytes(salt),
       iterations: ITERATIONS,
     },
     baseKey,
@@ -70,7 +73,11 @@ export async function encryptBackup(
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await deriveKey(password, salt);
   const plaintext = new TextEncoder().encode(JSON.stringify(backup));
-  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: toCryptoBytes(iv) },
+    key,
+    toCryptoBytes(plaintext),
+  );
 
   return {
     format: "aurora-backup",
@@ -95,9 +102,9 @@ export async function decryptBackup(
 
     const key = await deriveKey(password, salt);
     const plaintext = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv },
+      { name: "AES-GCM", iv: toCryptoBytes(iv) },
       key,
-      fromBase64(encrypted.ciphertext),
+      toCryptoBytes(fromBase64(encrypted.ciphertext)),
     );
     return validateBackup(JSON.parse(new TextDecoder().decode(plaintext)));
   } catch {
