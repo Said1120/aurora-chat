@@ -28,7 +28,7 @@ describe("GitHub Pages 独立发布", () => {
     ) as { scripts: Record<string, string> };
 
     expect(packageJson.scripts["deploy:pages"]).toBe(
-      "npm run build && gh-pages -d out -b gh-pages",
+      "npm run build && gh-pages -d out -b gh-pages -t",
     );
   });
 });
