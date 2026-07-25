@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "aurora-chat-transfer",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-25",
+  "r2_buckets": [
+    {
+      "binding": "TRANSFER_BUCKET",
+      "bucket_name": "aurora-chat-transfers"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "TRANSFER_CLAIM_GATE",
+        "class_name": "TransferClaimGate"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["TransferClaimGate"]
+    }
+  ],
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  }
+}

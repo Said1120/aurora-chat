@@ -1,3 +1,9 @@
+import type {
+  ProviderId,
+  ReasoningLevel,
+  TemperaturePreset,
+} from "../providers/catalog";
+
 export type MessagePart =
   | { type: "text"; text: string }
   | { type: "sticker"; emoji: string; label: string }
@@ -24,6 +30,7 @@ export type ChatMessage = {
   role: "user" | "assistant" | "system";
   parts: MessagePart[];
   createdAt: string;
+  updatedAt?: string;
   status?: "streaming" | "error";
 };
 
@@ -39,22 +46,31 @@ export type Conversation = {
 
 export type ModelProfile = {
   id: string;
+  providerId?: ProviderId;
   name: string;
   baseUrl: string;
   apiKey: string;
   model: string;
   temperature: number;
+  temperaturePreset?: TemperaturePreset;
+  reasoningLevel?: ReasoningLevel;
+  useCustomModel?: boolean;
   maxTokens: number;
+  updatedAt?: string;
 };
 
-export type Backup = {
-  version: 1;
+type BackupContents = {
   exportedAt: string;
   roles: Role[];
   conversations: Conversation[];
   messages: ChatMessage[];
   profiles: ModelProfile[];
 };
+
+export type BackupV1 = BackupContents & { version: 1 };
+export type BackupV2 = BackupContents & { version: 2 };
+export type Backup = BackupV2;
+export type BackupImportResult = "applied" | "canceled";
 
 const now = () => new Date().toISOString();
 const id = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
@@ -75,14 +91,14 @@ export function createStarterRole(name: string): Role {
   };
 }
 
-export function validateBackup(value: unknown): Backup {
+export function validateBackup(value: unknown): BackupV2 {
   if (!value || typeof value !== "object") {
     throw new Error("备份文件格式不正确");
   }
 
-  const backup = value as Partial<Backup>;
+  const backup = value as Partial<BackupV1 | BackupV2>;
   if (
-    backup.version !== 1 ||
+    (backup.version !== 1 && backup.version !== 2) ||
     !Array.isArray(backup.roles) ||
     !Array.isArray(backup.conversations) ||
     !Array.isArray(backup.messages) ||
@@ -91,5 +107,15 @@ export function validateBackup(value: unknown): Backup {
     throw new Error("备份文件格式不正确");
   }
 
-  return backup as Backup;
+  return {
+    version: 2,
+    exportedAt: typeof backup.exportedAt === "string" ? backup.exportedAt : now(),
+    roles: backup.roles as Role[],
+    conversations: backup.conversations as Conversation[],
+    messages: (backup.messages as ChatMessage[]).map((message) => ({
+      ...message,
+      updatedAt: message.updatedAt ?? message.createdAt,
+    })),
+    profiles: backup.profiles as ModelProfile[],
+  };
 }

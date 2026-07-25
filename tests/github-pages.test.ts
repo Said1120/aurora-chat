@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 const projectFile = (path: string) => resolve(process.cwd(), path);
@@ -30,5 +31,64 @@ describe("GitHub Pages 独立发布", () => {
     expect(packageJson.scripts["deploy:pages"]).toBe(
       "npm run build && gh-pages -d out -b gh-pages -t",
     );
+  });
+
+  it("提供临时传输 Worker 的部署命令", async () => {
+    const packageJson = JSON.parse(
+      await readFile(projectFile("package.json"), "utf8"),
+    ) as { scripts: Record<string, string> };
+
+    expect(packageJson.scripts["deploy:transfer"]).toBe(
+      "npm --prefix workers/transfer run deploy",
+    );
+  });
+
+  it("可从提交的锁文件复现安装临时传输 Worker 依赖", () => {
+    const npmCli = process.env.npm_execpath;
+    if (!npmCli) throw new Error("npm_execpath is unavailable");
+    const result = spawnSync(
+      process.execPath,
+      [
+        npmCli,
+        "ci",
+        "--prefix",
+        "workers/transfer",
+        "--dry-run",
+        "--ignore-scripts",
+        "--no-audit",
+        "--no-fund",
+      ],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+      },
+    );
+
+    expect(
+      result.status,
+      result.error?.message || result.stderr || result.stdout,
+    ).toBe(0);
+  });
+
+  it("发布新版静态资源时更新服务工作线程缓存", async () => {
+    const serviceWorker = await readFile(projectFile("public/sw.js"), "utf8");
+
+    expect(serviceWorker).toContain('const CACHE = "aurora-chat-v3"');
+  });
+
+  it("README 说明多厂商、加密迁移和 MCP 边界", async () => {
+    const readme = await readFile(projectFile("README.md"), "utf8");
+
+    expect(readme).toContain("Kimi");
+    expect(readme).toContain("一次性传输码");
+    expect(readme).toContain("远程 HTTP/SSE MCP");
+  });
+
+  it("README 准确说明 Turnstile 密钥和本地 CORS 例外", async () => {
+    const readme = await readFile(projectFile("README.md"), "utf8");
+
+    expect(readme).toContain("`TURNSTILE_SECRET_KEY` 是通过 `wrangler secret put` 设置的运行时密钥");
+    expect(readme).toContain("生产环境只允许 `https://said1120.github.io`");
+    expect(readme).toContain("`http://localhost` 和 `http://127.0.0.1` 是本地开发例外");
   });
 });

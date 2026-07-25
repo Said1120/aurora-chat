@@ -1,39 +1,71 @@
 # Aurora Chat
 
-一个完全独立、为 iPad 设计的个人 AI 聊天工具。它通过 GitHub Pages 免费发布，可直接连接 DeepSeek 或其他 OpenAI 兼容 API，并在当前设备保存对话、角色和设置。
+Aurora Chat 是一个跨平台、可安装的个人 AI 聊天 PWA，可在 iPad、手机和桌面浏览器中使用。它是本地优先的：对话、角色、服务商配置和 API Key 都保存在当前设备的浏览器数据库中，不会写入源代码、GitHub 或中转服务。
 
-独立网址：<https://said1120.github.io/aurora-chat/>
+网站：<https://said1120.github.io/aurora-chat/>
 
-## 在 iPad 上使用
+## 支持的服务商
 
-1. 用 iPad 的 Safari 打开 <https://said1120.github.io/aurora-chat/>。
-2. 点击浏览器的“分享”按钮。
-3. 选择“添加到主屏幕”，确认名称后点击“添加”。
-4. 从主屏幕打开 Aurora Chat，进入“设置”。
-5. 填入 DeepSeek API Key，保留默认地址 `https://api.deepseek.com` 和模型 `deepseek-chat`，点击“保存连接设置”。
-6. 新建对话后即可开始聊天。
+可分别配置并切换以下六家服务商的 API：
 
-建议首次设置完成后，在“设置”中点击“导出全部数据”保存一份 JSON 备份。iPad 的浏览器储存可能被系统清理，备份可以在新设备上通过“导入备份”恢复。
+- DeepSeek
+- Kimi（月之暗面）
+- MiMo（小米）
+- 硅基流动
+- 智谱 GLM
+- 通义千问（阿里云百炼）
 
-## 当前功能
+也可以添加其他 OpenAI Chat Completions 兼容服务。各服务商的 API Key 和用量由用户自行向相应服务商开通、计费；GitHub Pages 只负责免费托管静态前端，并不提供或代付任何模型 API。
 
-- 可安装的 iPad PWA，支持横屏、竖屏和分屏。
-- DeepSeek / OpenAI 兼容 API 的流式聊天与停止生成。
-- AI 角色、头像、系统提示词和快捷表情。
-- 本地对话保存、置顶、自动标题与复制回答。
-- JSON 导入导出。
-- 为将来的图片、贴纸和 MCP 工具调用预留消息结构与安全确认边界。
+## 使用与数据安全
 
-## 本地开发
+在任意受支持的浏览器中打开网站，进入“设置”后选择服务商、填写自己的 API Key 并保存，即可新建对话。iPad 上可通过 Safari 的“添加到主屏幕”安装为应用；其他设备可使用浏览器提供的 PWA 安装入口。
+
+数据默认留在本机。请不要在共享设备上保存 API Key，并定期导出备份。导出的 `.aurora` 备份使用用户设置的备份密码在本机以 AES-GCM 加密；密码不会保存到文件或发送到网络。导入时同样只在本机解密，再选择合并或替换现有数据；即时迁移包会在确认导入前显示内容预览。
+
+## 设备迁移
+
+“一次性传输码”用于在两台设备之间迁移加密备份：发送端先在本机加密，二维码/链接只携带随机传输 ID 和密钥。密钥位于链接片段中，不会发给中转服务；中转 Worker 只会收到密文，永远不会收到聊天明文、API Key、备份密码或传输密钥。
+
+临时传输有严格限制：单个密文包最大 20 MB、成功领取后立即删除且不能再次领取、未领取的包在 15 分钟后过期。创建传输需要 Turnstile 验证。若未配置临时传输服务，仍可使用加密文件备份在设备间迁移。
+
+## MCP 边界
+
+目前不直接运行 MCP 工具。未来可以集成远程 HTTP/SSE MCP；本地 stdio MCP 需要一个由用户自行运行的伴随网关，浏览器不能直接启动或连接本机 stdio 进程。任何后续工具调用仍应保留明确的用户确认和最小权限边界。
+
+## 本地开发与验证
 
 ```bash
-npm install
+npm ci
+npm ci --prefix workers/transfer
 npm test
+npm --prefix workers/transfer test
+npm run lint
 npm run build
 ```
 
-## 发布方式
+构建会输出静态站点到 `out/`，并保留 `/aurora-chat` 基路径。
 
-运行 `npm run deploy:pages` 会生成纯静态 PWA 并发布到仓库的 `gh-pages` 分支。GitHub Pages 从这个分支提供独立网站，不依赖 ChatGPT、Cloudflare、Vercel 或其他登录入口。
+## 发布 GitHub Pages 与临时传输服务
 
-API Key 不会写入源代码或 GitHub，只保存在当前设备的浏览器数据库中。不要在共享设备上保存密钥。
+静态前端发布命令如下，保持 GitHub Pages 的 `gh-pages` 分支发布方式：
+
+```bash
+npm run deploy:pages
+```
+
+临时传输 Worker 需要由 Cloudflare 账户所有者完成以下首次配置；不要将任何密钥或传输链接提交到仓库：
+
+```bash
+npm ci --prefix workers/transfer
+npm --prefix workers/transfer exec -- wrangler login
+npm --prefix workers/transfer exec -- wrangler r2 bucket create aurora-chat-transfers
+npm --prefix workers/transfer exec -- wrangler secret put TURNSTILE_SECRET_KEY --config workers/transfer/wrangler.jsonc
+npm --prefix workers/transfer run deploy
+```
+
+`workers/transfer/package-lock.json` 固定 Worker 的部署工具版本；每次从新检出部署前都使用上面的 `npm ci --prefix workers/transfer`，不要改用未锁定版本的全局或临时 Wrangler。Worker 的 `wrangler.jsonc` 声明 R2 和 Durable Object（含 migration）；`TURNSTILE_SECRET_KEY` 是通过 `wrangler secret put` 设置的运行时密钥，并不在配置文件中声明。首次部署必须应用其中 `v1` 的 Durable Object migration；它为原子化的一次性领取门提供存储类，缺少该 migration 会破坏“仅能领取一次”的安全保证。今后若变更 Durable Object 类，也必须先在同一配置中声明相应 migration，再部署 Worker。
+
+部署 Worker 后，将返回的 Worker URL 和公开的 Turnstile site key 作为 GitHub Pages 构建变量 `NEXT_PUBLIC_TRANSFER_SERVICE_URL` 与 `NEXT_PUBLIC_TURNSTILE_SITE_KEY` 配置，然后重新构建并运行 `npm run deploy:pages`。这两个变量仅用于浏览器连接 Worker 和加载 Turnstile；不要把 API Key、备份密码、Turnstile secret 或传输密钥放入构建变量。
+
+发布后应从 `https://said1120.github.io/aurora-chat/` 验证站点返回 200，并以两台设备完成一次迁移：接收端能恢复加密备份，第二次领取失败。Worker 的 CORS 预检在生产环境只允许 `https://said1120.github.io`；`http://localhost` 和 `http://127.0.0.1` 是本地开发例外（允许任意端口）。

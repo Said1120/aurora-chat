@@ -2,6 +2,7 @@ import Dexie, { type Table } from "dexie";
 import {
   createStarterRole,
   type Backup,
+  type BackupV2,
   type ChatMessage,
   type Conversation,
   type ModelProfile,
@@ -22,6 +23,12 @@ export class IpadChatDatabase extends Dexie {
       messages: "id, conversationId, createdAt",
       profiles: "id, name",
     });
+    this.version(2).stores({
+      roles: "id, name, updatedAt",
+      conversations: "id, roleId, pinned, updatedAt",
+      messages: "id, conversationId, createdAt, updatedAt",
+      profiles: "id, providerId, updatedAt",
+    });
   }
 }
 
@@ -32,6 +39,7 @@ export function createAppDatabase(name = "ipad-ai-chat"): IpadChatDatabase {
 }
 
 export async function seedDatabase(database: IpadChatDatabase): Promise<void> {
+  await migrateProfiles(database);
   if ((await database.roles.count()) > 0) return;
 
   const role = createStarterRole("通用助手");
@@ -61,11 +69,103 @@ export async function exportDatabase(database: IpadChatDatabase): Promise<Backup
   ]);
 
   return {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     roles,
     conversations,
-    messages,
+    messages: messages.map((message) => ({
+      ...message,
+      updatedAt: message.updatedAt ?? message.createdAt,
+    })),
     profiles,
+  };
+}
+
+export async function migrateProfiles(database: IpadChatDatabase): Promise<void> {
+  const legacy = await database.profiles.get("default");
+  if (!legacy) return;
+
+  const existing = await database.profiles.get("deepseek");
+  if (existing) {
+    if (!existing.apiKey && legacy.apiKey) {
+      await database.profiles.put({
+        ...existing,
+        apiKey: legacy.apiKey,
+        updatedAt: existing.updatedAt ?? new Date().toISOString(),
+      });
+    }
+    await database.profiles.delete("default");
+    return;
+  }
+
+  await database.transaction("rw", database.profiles, async () => {
+    await database.profiles.put({
+      ...legacy,
+      id: "deepseek",
+      providerId: "deepseek",
+      model:
+        legacy.model === "deepseek-chat" || legacy.model === "deepseek-reasoner"
+          ? "deepseek-v4-flash"
+          : legacy.model,
+      temperaturePreset: legacy.temperaturePreset ?? "balanced",
+      reasoningLevel: legacy.reasoningLevel ?? "standard",
+      updatedAt: legacy.updatedAt ?? new Date().toISOString(),
+    });
+    await database.profiles.delete("default");
+  });
+}
+
+type MergeableRecord = {
+  id: string;
+  updatedAt?: string;
+  createdAt?: string;
+};
+
+const recordTimestamp = (record: MergeableRecord): string =>
+  record.updatedAt ?? record.createdAt ?? "";
+
+function mergeRecords<T extends MergeableRecord>(existing: T[], incoming: T[]): T[] {
+  const records = new Map(existing.map((record) => [record.id, record]));
+  for (const record of incoming) {
+    const current = records.get(record.id);
+    if (!current || recordTimestamp(record) > recordTimestamp(current)) {
+      records.set(record.id, record);
+    }
+  }
+  return Array.from(records.values());
+}
+
+const canonicalizeProfile = (profile: ModelProfile): ModelProfile =>
+  profile.id === "default"
+    ? {
+        ...profile,
+        id: "deepseek",
+        providerId: "deepseek",
+        model:
+          profile.model === "deepseek-chat" || profile.model === "deepseek-reasoner"
+            ? "deepseek-v4-flash"
+            : profile.model,
+        temperaturePreset: profile.temperaturePreset ?? "balanced",
+        reasoningLevel: profile.reasoningLevel ?? "standard",
+      }
+    : profile;
+
+export function mergeBackup(existing: BackupV2, incoming: BackupV2): BackupV2 {
+  return {
+    version: 2,
+    exportedAt:
+      existing.exportedAt > incoming.exportedAt
+        ? existing.exportedAt
+        : incoming.exportedAt,
+    roles: mergeRecords(existing.roles, incoming.roles),
+    conversations: mergeRecords(existing.conversations, incoming.conversations),
+    messages: mergeRecords(existing.messages, incoming.messages).map((message) => ({
+      ...message,
+      updatedAt: message.updatedAt ?? message.createdAt,
+    })),
+    profiles: mergeRecords(
+      existing.profiles.map(canonicalizeProfile),
+      incoming.profiles.map(canonicalizeProfile),
+    ),
   };
 }
